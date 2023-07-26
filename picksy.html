@@ -1,0 +1,482 @@
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <title>Picksy</title>
+  <style>
+
+    *
+    {
+        box-sizing: border-box;
+    }
+
+    body
+    {
+        font-family: sans-serif;
+        padding: 0;
+        margin: 0;
+    }
+
+    a,
+    a:hover,
+    a:visited,
+    a:active
+    {
+        color: black;
+        text-decoration: none;
+    }
+
+    #cache
+    {
+        display: none;
+    }
+
+    #alert
+    {
+        position: fixed;
+        display: none;
+        background: white;
+        padding: 10px 14px;
+        border: 1px dashed #999;
+        border-radius: 8px;
+        box-shadow: 0px 3px 15px rgba(0,0,0,0.25);
+        top: 50%;
+        left: 50%;
+        font-size: 1.25rem;
+        transform: translate(-50%, -50%);
+    }
+
+    #alert.fail
+    {
+        color: indianred;
+    }
+
+    #alert.show
+    {
+        display: block;
+    }
+
+    #index
+    {
+        display: none;
+    }
+
+    #index.show
+    {
+        display: block;
+    }
+
+    #index ul
+    {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    #index ul li
+    {
+        padding: 10px;
+        text-align: center;
+        border-bottom: 1px solid lightgrey;
+    }
+
+    #index ul li.active,
+    #index ul li.active .muted
+    {
+        color: indianred;
+    }
+
+    #album
+    {
+        display: none;
+    }
+
+    #album.show
+    {
+        display: block;
+    }
+
+    #album .image
+    {
+        width: 100vw;
+        height: 100vh;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+    }
+
+    #album .title,
+    #album .count,
+    #album .saved
+    {
+        position: fixed;
+        text-align: center;
+        background-color: rgb(255, 255, 255, 0.5);
+        z-index: 2;
+    }
+
+    #album .saved {
+        bottom: 10px;
+        right: 10px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        padding: 7px;
+        line-height: 1rem;
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+
+    #album .title
+    {
+        left: 0;
+        bottom: 25px;
+        width: 100vw;
+        padding: 8px;
+        font-size: 0.9rem;
+    }
+
+    #album .count
+    {
+        right: calc((100vw - 80px) / 2);
+        top: 0;
+        width: 80px;
+        height: 22px;
+        padding: 4px;
+        font-size: 0.75rem;
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="alert"></div>
+  <img id="cache" />
+  <div id="album">
+    <div class="image"></div>
+    <span class="count"></span>
+    <span class="links"></span>
+    <a class="visit" href="#" target="new">
+      <span class="title"></span>
+    </a>
+    <a class="saved" href="#" download="#" target="new">&darr;</a>
+  </div>
+  <div id="index">
+    <ul></ul>
+  </div>
+<script>
+
+  // --- security function
+
+  function encrypt(text, passphrase) { return CryptoJS.AES.encrypt(text, passphrase).toString() }
+  function decrypt(text, passphrase) { return CryptoJS.AES.decrypt(text, passphrase).toString(CryptoJS.enc.Utf8) }
+
+  // --- constants
+
+  const SIZE = 256;
+  const PARM = new URLSearchParams(window.location.search);
+  const HTML = decrypt('U2FsdGVkX19l8aK6EPKNZaZkuUVCEOTASjKzPtPOhvjxA4c0ibavfKoGXc1RalaF5ze6TsmynV1wL8Qrm7G3XpKToguWLywgfp4hrVAFP+xiqvgxiDcjleTqTielRMar', PARM.get('k') || '');
+  const JSON = decrypt('U2FsdGVkX1/hIthpB95qSLsMJsm0OopVFaqOU0s56z4wJU/aE+eoAGlsZ7vux0Pwfflxt4USxU0YPL450MaFFNLrRGU3xTJERa3sbAjQXad7G8dIAfpq0Ay11N6i8KN/', PARM.get('k') || '');
+  const TAGS = 'https://www.pornpics.com/tags/';
+  const STAR = 'https://www.pornpics.com/pornstars/list/';
+  const PICS = `https://www.pornpics.com/[TAG]/?limit=${ SIZE }&offset=1`;
+  const FIND = `https://www.pornpics.com/search/srch.php?q=[TERM]&lang=en&limit=${ SIZE }&offset=1`;
+  const CTRL = {
+      ALERT: document.querySelector('#alert'),
+      CACHE: document.querySelector('#cache'),
+      INDEX: {
+          TOTAL: document.querySelector('#index'),
+          ITEMS: document.querySelector('#index ul')
+      },
+      ALBUM: {
+          TOTAL: document.querySelector('#album'),
+          IMAGE: document.querySelector('#album .image'),
+          TITLE: document.querySelector('#album .title'),
+          COUNT: document.querySelector('#album .count'),
+          SAVED: document.querySelector('#album .saved'),
+          VISIT: document.querySelector('#album .visit')
+      }
+  }
+
+  // --- context
+
+  let state = [];
+
+  // --- download json
+
+  function data(url) {
+      return fetch(JSON + encodeURIComponent(url))
+      .then(res => res.status === 200 ? res.json() : { data: [] })
+      .then(out => out.data);
+  }
+
+  // --- download html
+
+  function html(url) {
+      return fetch(HTML + encodeURIComponent(url))
+      .then(res => res.status === 200 ? res.json() : { text: '' })
+      .then(out => out.text)
+      .then(doc => new DOMParser().parseFromString(doc, 'text/html'));
+  }
+
+  // --- show or hide an alert message
+
+  function alert(show, text = '', fail = false) {
+      CTRL.ALERT.classList.toggle('show', show);
+      CTRL.ALERT.classList.toggle('fail', fail);
+      CTRL.ALERT.innerText = show ? text : '';
+  }
+
+  // --- show or hide loading message
+
+  function wait(show) {
+      alert(show, 'loading...');
+  }
+
+  // --- flash an error message
+
+  function error(text) {
+      alert(true, text, true);
+      setTimeout(() => { alert(false) }, 1500);
+  }
+
+  // --- loads the tags
+
+  function tags() {
+      wait(true);
+      Promise.all([ html(TAGS), html(STAR) ]).then(([ doc1, doc2 ]) => {
+          let list1 = [ ...doc1.querySelectorAll('.list-item a') ];
+          let list2 = [ ...doc2.querySelectorAll('.list-item a') ];
+          let next  = {
+              type: 'index',
+              curr: -1,
+              list: [...list1, ...list2].map(i => ({
+                  href: i.getAttribute('href'),
+                  desc: i.title
+              }))
+          }
+
+          next.list = next.list.filter(i => i.desc);
+
+          if (next.list.length) {
+              state.push(next);
+              render()
+              wait(false);
+          }
+          else {
+              error('nothing found');
+          }
+      });
+  }
+
+  // --- loads pics from a tag
+
+  function pics(href) {
+      const TOKENS = [ '?q=', 'channels/', 'pornstars/' ];
+
+      let tag = href.replace(/^\/+|\/+$/g, '');
+      let url = PICS.replace('[TAG]', tag);
+
+      TOKENS.forEach(i => {
+          if (tag.startsWith(i)) {
+              url = FIND.replace('[TERM]', tag.substr(i.length).replace('-', '+'));
+          }
+      });
+
+      wait(true);
+
+      data(url).then(list => {
+          let next = {
+              type: 'album',
+              curr: 0,
+              pics: list.map(i => ({ href: i.t_url_460, link: i.g_url, desc: i.desc })).sort(() => Math.random() - 0.5),
+              more: []
+          }
+
+          if (next.pics.length) {
+              state.push(next);
+              render();
+              wait(false);
+          }
+          else {
+              error('nothing found');
+          }
+      });
+  }
+
+  // --- loads a gallery from a href
+
+  function gallery(href) {
+      wait(true);
+      html(href).then(doc => {
+          let next = {
+              type: 'album',
+              curr: 0,
+              pics: [...doc.querySelectorAll('li a.rel-link'  )].map(i => ({ href: i.href, link: '', desc: '' })),
+              more: [...doc.querySelectorAll('.gallery-info a')].map(i => ({ href: i.getAttribute('href'), desc: i.title.replace(' Pics', '') }))
+          }
+
+          if (next.pics.length) {
+              state.push(next);
+              render();
+              wait(false);
+          }
+          else {
+              error('nothing found');
+          }
+      });
+  }
+
+  // --- renders an album
+
+  function album(ctx) {
+      let curr = ctx.pics[ctx.curr];
+      let next = ctx.pics[ctx.curr + 1];
+
+      CTRL.INDEX.TOTAL.classList.remove('show');
+      CTRL.ALBUM.TOTAL.classList.add   ('show');
+
+      CTRL.ALBUM.IMAGE.style.backgroundImage = `url('${ curr.href }')`;
+      CTRL.ALBUM.COUNT.textContent           = `${ ctx.curr + 1 } / ${ ctx.pics.length } : ${ state.length }`;
+      CTRL.ALBUM.TITLE.textContent           = curr.desc;
+      CTRL.ALBUM.VISIT.href                  = curr.link;
+      CTRL.ALBUM.VISIT.style.display         = curr.link ? 'block' : 'none';
+      CTRL.ALBUM.SAVED.style.display         = curr.link ? 'none'  : 'block';
+      CTRL.ALBUM.SAVED.href                  = curr.href;
+      CTRL.ALBUM.SAVED.download              = curr.href.substring(curr.href.lastIndexOf('/') + 1);
+      CTRL.CACHE.src                         = next?.href || '';
+  }
+
+  // --- renders an index
+
+  function index(ctx) {
+      CTRL.ALBUM.TOTAL.classList.remove('show');
+      CTRL.INDEX.TOTAL.classList.add   ('show');
+      CTRL.INDEX.ITEMS.innerHTML = '';
+
+      ctx.list.forEach((i, idx) => {
+          let item = document.createElement('li');
+
+          item.classList.toggle('active', idx === ctx.curr);
+          item.innerHTML = i.desc;
+          item.onclick   = event => {
+              CTRL.INDEX.ITEMS.querySelectorAll('li').forEach(j => j.classList.remove('active'));
+              event.target.classList.add('active');
+              ctx.curr = idx;
+              pics(i.href);
+          };
+
+          CTRL.INDEX.ITEMS.appendChild(item);
+      });
+
+      let last = CTRL.INDEX.ITEMS.querySelector('li.active');
+      if (last) last.scrollIntoView({ block: 'center' });
+  }
+
+  // --- renders current state
+
+  function render() {
+      let ctx = state[state.length - 1];
+      ctx.type === 'index' ? index(ctx) : album(ctx);
+  }
+
+  // --- swipe handling
+
+  function swipe(dir) {
+      let ctx = state[state.length - 1];
+
+      switch(dir) {
+          case SWIPE.DIR.LEFT: {
+              if (ctx.type === 'album') {
+                  if (ctx.pics[ctx.curr].link) {
+                      gallery(ctx.pics[ctx.curr].link);
+                  }
+
+                  else if (ctx.more.length) {
+                      state.push({ type: 'index', curr: -1, list: ctx.more });
+                      render();
+                  }
+              }
+          }
+          break;
+
+          case SWIPE.DIR.RIGHT: {
+              if (state.length > 1) {
+                  state.pop();
+                  render();
+              }
+          }
+          break;
+
+          case SWIPE.DIR.UP: {
+              if (ctx.type === 'album') {
+                  ctx.curr = Math.min(ctx.curr + 1, ctx.pics.length - 1);
+                  render();
+              }
+          }
+          break;
+
+          case SWIPE.DIR.DOWN: {
+              if (ctx.type === 'album') {
+                  ctx.curr = Math.max(ctx.curr - 1, 0);
+                  render();
+              }
+          }
+          break;
+      }
+  }
+
+  // --- entry point
+
+  PARM.get('q') ? pics(`?q=${ PARM.get('q') }`) : tags();
+
+  // === touch handling ========================================================
+
+  const SWIPE = { DIR: { LEFT: 1, RIGHT: 2, UP: 3, DOWN: 4 }, MIN: 10 };
+
+  let sx = sy = 0;
+
+  document.addEventListener('touchstart', e => {
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+  });
+
+  document.addEventListener('touchmove', e => {
+      e.preventDefault();
+  });
+
+  document.addEventListener('touchend', e => {
+      let ex = e.changedTouches[0].clientX;
+      let ey = e.changedTouches[0].clientY;
+      let dx = ex - sx;
+      let dy = ey - sy;
+      let hz = Math.abs(dx) > Math.abs(dy);
+      let mv = hz ? Math.abs(dx) > SWIPE.MIN : Math.abs(dy) > SWIPE.MIN;
+
+      if (mv) {
+          hz ? swipe(dx > 0 ? SWIPE.DIR.RIGHT : SWIPE.DIR.LEFT) : swipe(dy > 0 ? SWIPE.DIR.DOWN : SWIPE.DIR.UP);
+      }
+  });
+
+  // === key handling ==========================================================
+
+  const KEYS = {
+      'ArrowUp'   : SWIPE.DIR.DOWN,
+      'ArrowDown' : SWIPE.DIR.UP,
+      'ArrowLeft' : SWIPE.DIR.RIGHT,
+      'ArrowRight': SWIPE.DIR.LEFT
+  };
+
+  document.addEventListener('keydown', e => {
+      if (KEYS[e.key]) swipe(KEYS[e.key]);
+  });
+
+  // === unload protection =====================================================
+
+  window.onbeforeunload = (() => true)
+
+</script>
+</body>
+</html>
