@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Plutus</title>
+  <style>
+
+    *
+    {
+        box-sizing: border-box;
+    }
+
+    ::placeholder
+    {
+        color: #888;
+    }
+
+    .hidden
+    {
+        display: none;
+    }
+
+    body
+    {
+        font-family: sans-serif;
+        background: black;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container
+    {
+        margin: 0 auto;
+        max-width: 800px;
+    }
+
+    .nav
+    {
+        width: 100%;
+        margin: 0;
+    }
+
+    .nav #find
+    {
+        display: inline;
+        font-size: 1.25rem;
+        margin: 0;
+        padding: 6px;
+        width: 100%;
+        outline: none;
+        border: 5px solid black;
+        border-left-width: 2px;
+        border-right-width: 2px;
+        text-transform: lowercase;
+    }
+
+    .nav #find:disabled {
+        background-color: white;
+        color: #888;
+    }
+
+    .card
+    {
+        position: relative;
+        width: 100%;
+    }
+
+    .card img
+    {
+        width: 100%;
+    }
+
+    .card p
+    {
+        position: absolute;
+        text-align: center;
+        color: white;
+        padding: 8px 10px;
+        background-color: rgba(0,0,0,0.5);
+    }
+
+    .card p.play
+    {
+        display: none;
+        margin: 0;
+        padding: 0;
+        padding-left: 3px;
+        width: 55px;
+        height: 55px;
+        font-size: 1.8rem;
+        line-height: 3.5rem;
+        top: 50%;
+        left: 50%;
+        border-radius: 100%;
+        transform: translate(-50%,-50%);
+    }
+
+    .card.load p.play
+    {
+        border: 1px dashed white;
+    }
+
+    .card.video p.play,
+    .card.load  p.play
+    {
+        display: block;
+    }
+
+    .card p.title
+    {
+        bottom: 0px;
+        width: 100%;
+        font-size: 1rem;
+    }
+
+    .card p.title a
+    {
+        color: whitesmoke;
+        text-decoration: none;
+    }
+
+    .card p.duration,
+    .card p.index
+    {
+        top: 0px;
+        font-size: 0.75rem;
+    }
+
+    .card p.duration
+    {
+        right: 0px;
+        padding-right: 8px;
+        border-top-left-radius: 6px;
+        border-bottom-left-radius: 6px;
+    }
+
+    .card p.index
+    {
+        left: 0;
+        padding-left: 8px;
+        border-top-right-radius: 6px;
+        border-bottom-right-radius: 6px;
+    }
+
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class='nav'>
+        <input id="find" type="text" onkeypress="search(event)">
+      </div>
+      <div id="deck"></div>
+    </div>
+    <script>
+
+    // --- security function
+
+    function encrypt(text, passphrase) { return CryptoJS.AES.encrypt(text, passphrase).toString() }
+    function decrypt(text, passphrase) { return CryptoJS.AES.decrypt(text, passphrase).toString(CryptoJS.enc.Utf8) }
+
+    // --- dom helpers
+
+    Node.prototype.fromAttr = function(s, a) {
+        return this.querySelector(s) ? this.querySelector(s).getAttribute(a) :'';
+    }
+
+    Node.prototype.fromData = function(s, a) {
+        return this.querySelector(s) ? this.querySelector(s).getAttribute(`data-${ a }`) : '';
+    }
+
+    Node.prototype.fromMeta = function(p) {
+        return this.fromAttr(`meta[property="${ p }"]`, 'content');
+    }
+
+    Node.prototype.fromText = function(s) {
+        return this.querySelector(s) ? this.querySelector(s).textContent.trim() : '';
+    }
+
+    Node.prototype.fromRegx = function(s, r) {
+        return this.querySelector(s) ? ((this.querySelector(s).innerHTML.match(r) || [])[1] || '') : ''
+    }
+
+    Node.prototype.forAll = function(s) {
+        return [ ...this.querySelectorAll(s) ];
+    }
+
+    // --- constants
+
+    const PARM = new URLSearchParams(window.location.search);
+    const HTML = decrypt('U2FsdGVkX19l8aK6EPKNZaZkuUVCEOTASjKzPtPOhvjxA4c0ibavfKoGXc1RalaF5ze6TsmynV1wL8Qrm7G3XpKToguWLywgfp4hrVAFP+xiqvgxiDcjleTqTielRMar', PARM.get('k') || '');
+    const DECK = document.getElementById('deck');
+    const FIND = document.getElementById('find');
+    const LIST = [
+        {
+            ident: 'ttb',
+            handle: ttb,
+            scrape: 'source',
+            search: 'https://www.trannytube.net/search/[TERM]',
+            domain: 'trannytube.net'
+        },
+        {
+            ident: 'spk',
+            handle: spk,
+            scrape: 'render',
+            search: 'https://spankbang.com/s/[TERM]/', // traling slash is needed - for some reason
+            domain: 'spankbang.com'
+        },
+        {
+            ident: 'xoz',
+            handle: xoz,
+            scrape: 'source',
+            search: 'https://www.xozilla.com/search/[TERM]/', // traling slash is needed - for some reason
+            domain: 'xozilla.com'
+        },
+    ];
+
+    // --- parses json even with unquoted strings
+
+    function json(str) {
+        eval(`var obj = ${ str || '{}' }`);
+        return obj;
+    }
+
+    // --- truncate text to a maz size
+
+    function truncate(text, max) {
+        return (text.length > max) ? text.slice(0, max - 1) + '&hellip;' : text;
+    }
+
+    // --- create a site url
+
+    function href(scrape, url) {
+        return HTML + encodeURIComponent(url);
+    }
+
+    // --- check is an element exists by id
+
+    function have(id) {
+        return document.getElementById(id);
+    }
+
+    // --- grab a site page
+
+    function grab(scrape, url) {
+        return fetch(href(scrape, url))
+        .then(res => res.json())
+        .then(out => out.text)
+        .then(txt => new DOMParser().parseFromString(txt, 'text/html'));
+    }
+
+    // --- make a card element
+
+    function card(info, video = false) {
+        return info.image ?
+        `<div id="${ info.link }" class="card ${ video ? 'video' : '' }" data-link="${ info.link }">
+           <a href="javascript:void(0)" onclick="action(this.parentElement)">
+             <img referrerPolicy="no-referrer" src="${ info.image }" />
+             <p class="play">&#9654;</p>
+             <p class="title">
+               <a href="${ info.link }" target="new" rel="noreferrer">${ truncate(info.title, 64) }</a>
+             </p>
+             <p class="duration ${ info.length ? '' : 'hidden' }">${ info.length }</p>
+             <p class="index"></p>
+           </a>
+         </div>` : '';
+    }
+
+    // --- load a url and make the card output
+
+    function load(url) {
+        let site = LIST.find(i => url.includes(i.domain));
+
+        return grab(site.scrape, url)
+        .then(doc  => site.handle(doc))
+        .then(info => {
+            let found = have(url);
+            let items = (info.items || []).sort(() => 0.5 - Math.random());
+
+            if (found) {
+                found.dataset.link = info.link;
+                found.classList.add('video');
+                items.map(i => have(i.link) ? 0 : found.insertAdjacentHTML('afterend', card(i)));
+            }
+            else {
+                items.map(i => DECK.insertAdjacentHTML('beforeend',card(i)));
+            }
+
+            let list = [ ...DECK.querySelectorAll('.card') ]
+            list.forEach((card, idx) => card.querySelector('.index').textContent = `${ idx + 1 } of ${ list.length }`);
+        });
+    }
+
+    // --- process a card action
+
+    function action(card) {
+        let url = card.getAttribute('data-link');
+
+        if (card.classList.contains('video')) {
+            window.open(url, '_blank');
+        }
+        else if (card.classList.contains('load') !== true) {
+            card.classList.add('load');
+            load(url).then(() => card.classList.remove('load'));
+        }
+    }
+
+    // --- instigate a search
+
+    function search(e) {
+        if (e.key === 'Enter') {
+            let what = FIND.value.toLowerCase().split(' ').filter(i => i);
+            let tag  = what.shift();
+            let term = what.join(' ');
+            let site = LIST.find(i => i.ident === tag);
+            let url  = site ? site.search.replace('[TERM]', encodeURI(term)) : '';
+
+            window.scroll({ top: 0 });
+            DECK.innerHTML = '';
+            FIND.disabled  = true;
+
+            load(url).then(() => FIND.disabled = false);
+        }
+    }
+
+    // --- ttb handler
+
+    function ttb(doc) {
+        return {
+            link   : doc.fromAttr('video source', 'src'),
+            image  : doc.fromAttr('video', 'poster'),
+            title  : doc.fromText('h1'),
+            items  : doc.forAll('.b-thumb-item-inner').map(i => ({
+                link   : `https://www.trannytube.net${ i.fromAttr('a', 'href') }`,
+                image  : i.fromData('img', 'src'),
+                title  : i.fromAttr('img', 'alt'),
+                length : i.fromText('.b-thumb-item__info .f-left').split('/').pop().trim(),
+            }))
+        }
+    }
+
+    // --- spk handler
+
+    function spk(doc) {
+        return {
+            link   : doc.fromAttr('video source', 'src'),
+            image  : doc.fromAttr('.play_cover img', 'src'),
+            title  : doc.fromText('h1'),
+            items  : doc.forAll('.main_results .video-item, .similar .video-item').map(i => ({
+                link   : `https://spankbang.com${ i.fromAttr('a.thumb', 'href') }`,
+                image  : i.fromData('img', 'src'),
+                title  : i.fromAttr('img', 'alt'),
+                length : i.fromText('span.l'),
+            }))
+        }
+    }
+
+    // --- xoz handler
+
+    function xoz(doc) {
+        let info = json(doc.fromRegx('div.player', /var flashvars = ({[^}]+});/));
+        let res1 = parseInt(info?.video_url_text    ) || 0;
+        let res2 = parseInt(info?.video_alt_url_text) || 0;
+        let film = res1 > res2 ? info?.video_url : info?.video_alt_url;
+
+        return {
+            link   : (film || '').replace(/\/$/, ''),
+            image  : info?.preview_url || '',
+            title  : doc.fromText('h1'),
+            items  : doc.forAll('.list-videos a.item').map(i => ({
+                link   : i.getAttribute('href'),
+                image  : i.fromData('img.thumb.lazy-load', 'original'),
+                title  : i.fromAttr('img.thumb.lazy-load', 'alt'),
+                length : i.fromText('span.l'),
+            }))
+        }
+    }
+
+    // --- entry point
+
+    FIND.placeholder = LIST.map(i => i.ident).sort().join(' | ');
+    FIND.focus();
+
+    // --- unload protection
+
+    window.onbeforeunload = (() => true)
+
+    </script>
+  </body>
+</html>
