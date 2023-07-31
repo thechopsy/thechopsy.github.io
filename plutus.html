@@ -149,7 +149,7 @@
   <body>
     <div class="container">
       <div class='nav'>
-        <input id="find" type="text" onkeypress="search(event)">
+        <input id="find" type="text" onkeypress="press(event)">
       </div>
       <div id="deck"></div>
     </div>
@@ -306,15 +306,22 @@
         }
     }
 
+    // --- handle a search press
+
+    function press(e) {
+        if (e.key === 'Enter') search();
+    }
+
     // --- instigate a search
 
-    function search(e) {
-        if (e.key === 'Enter') {
-            let what = FIND.value.toLowerCase().split(' ').filter(i => i);
-            let tag  = what.shift();
-            let term = what.join(' ');
-            let site = LIST.find(i => i.ident === tag);
-            let url  = site ? site.search.replace('[TERM]', encodeURI(term)) : '';
+    function search() {
+        let what = FIND.value.toLowerCase().split(' ').filter(i => i);
+        let tag  = what.shift();
+        let term = what.join(' ');
+        let site = LIST.find(i => i.ident === tag);
+
+        if (site) {
+            let url = site ? site.search.replace('[TERM]', encodeURI(term)) : '';
 
             window.scroll({ top: 0 });
             DECK.innerHTML = '';
@@ -381,6 +388,9 @@
 
     FIND.placeholder = LIST.map(i => i.ident).sort().join(' | ');
     FIND.focus();
+    FIND.value = PARM.get('q') || '';
+
+    search();
 
     // --- unload protection
 

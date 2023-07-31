@@ -2,6 +2,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <title>Picksy</title>
   <style>
@@ -108,7 +109,7 @@
 
     #album .title,
     #album .count,
-    #album .saved
+    #album .click
     {
         position: fixed;
         text-align: center;
@@ -116,16 +117,18 @@
         z-index: 2;
     }
 
-    #album .saved {
+    #album .click {
         bottom: 10px;
         right: 10px;
         width: 32px;
         height: 32px;
         border-radius: 50%;
-        padding: 7px;
+        padding: 7px 2px;
+        color: #333;
         line-height: 1rem;
-        font-size: 1.2rem;
-        font-weight: bold;
+        font-size: 1.25rem;
+        cursor: pointer;
+        border: 1px solid #888;
     }
 
     #album .title
@@ -161,7 +164,6 @@
     <a class="visit" href="#" target="new">
       <span class="title"></span>
     </a>
-    <a class="saved" href="#" download="#" target="new">&darr;</a>
   </div>
   <div id="index">
     <ul></ul>
@@ -195,7 +197,6 @@
           IMAGE: document.querySelector('#album .image'),
           TITLE: document.querySelector('#album .title'),
           COUNT: document.querySelector('#album .count'),
-          SAVED: document.querySelector('#album .saved'),
           VISIT: document.querySelector('#album .visit')
       }
   }
@@ -240,6 +241,28 @@
   function error(text) {
       alert(true, text, true);
       setTimeout(() => { alert(false) }, 1500);
+  }
+
+  // --- returns all the current buttons
+
+  function buttons() {
+      return CTRL.ALBUM.TOTAL.querySelectorAll('.click');
+  }
+
+  // --- makes and adds a new button
+
+  function button(icon, clicked) {
+      const POS = { MARGIN: 10, HEIGHT: 40 };
+      let butt = document.createElement('div');
+
+      butt.classList.add('material-symbols-outlined');
+      butt.classList.add('click');
+
+      butt.innerHTML    = icon;
+      butt.onclick      = clicked;
+      butt.style.bottom = `${ buttons().length * POS.HEIGHT + POS.MARGIN }px`;
+
+      CTRL.ALBUM.TOTAL.appendChild(butt);
   }
 
   // --- loads the tags
@@ -334,6 +357,8 @@
   function album(ctx) {
       let curr = ctx.pics[ctx.curr];
       let next = ctx.pics[ctx.curr + 1];
+      let list = curr.link?.length > 0;
+      let who  = ctx.more.find(i => i.href.startsWith('/pornstars/'));
 
       CTRL.INDEX.TOTAL.classList.remove('show');
       CTRL.ALBUM.TOTAL.classList.add   ('show');
@@ -342,11 +367,20 @@
       CTRL.ALBUM.COUNT.textContent           = `${ ctx.curr + 1 } / ${ ctx.pics.length } : ${ state.length }`;
       CTRL.ALBUM.TITLE.textContent           = curr.desc;
       CTRL.ALBUM.VISIT.href                  = curr.link;
-      CTRL.ALBUM.VISIT.style.display         = curr.link ? 'block' : 'none';
-      CTRL.ALBUM.SAVED.style.display         = curr.link ? 'none'  : 'block';
-      CTRL.ALBUM.SAVED.href                  = curr.href;
-      CTRL.ALBUM.SAVED.download              = curr.href.substring(curr.href.lastIndexOf('/') + 1);
+      CTRL.ALBUM.VISIT.style.display         = list ? 'block' : 'none';
       CTRL.CACHE.src                         = next?.href || '';
+
+      buttons().forEach(i => i.remove());
+
+      if (!list) {
+          button('save' , () => { window.open(curr.href, 'new') });
+      }
+
+      if (who) {
+          let name = who.desc.toLowerCase().replace(' ', '+');
+          button('movie', () => { window.open(`/plutus.html?k=${ PARM.get('k') }&q=xoz+${ name }`, 'new') });
+          button('star' , () => { window.open(`?k=${ PARM.get('k') }&q=${ name }`, 'new') });
+      }
   }
 
   // --- renders an index
