@@ -462,9 +462,22 @@
       }
   }
 
+  // --- initialisation handling
+
+  function init(query) {
+      if (query.length) {
+          let name = query.toLowerCase().replace(/(^|\s)\S/g, i => i.toUpperCase());
+          document.title = [name, document.title].join(' » ');
+          pics(`?q=${ query }`);
+      }
+      else {
+          tags();
+      }
+  }
+
   // --- entry point
 
-  PARM.get('q') ? pics(`?q=${ PARM.get('q') }`) : tags();
+  init(PARM.get('q') || '');
 
   // === touch handling ========================================================
 
