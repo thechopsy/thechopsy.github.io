@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="referrer" content="no-referrer">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <title>Plutus</title>
   <style>
@@ -72,6 +73,11 @@
         width: 100%;
     }
 
+    .card video {
+        width: 100%;
+        height: 100%;
+    }
+
     .card p
     {
         position: absolute;
@@ -79,33 +85,6 @@
         color: white;
         padding: 8px 10px;
         background-color: rgba(0,0,0,0.5);
-    }
-
-    .card p.play
-    {
-        display: none;
-        margin: 0;
-        padding: 0;
-        padding-left: 3px;
-        width: 55px;
-        height: 55px;
-        font-size: 1.8rem;
-        line-height: 3.5rem;
-        top: 50%;
-        left: 50%;
-        border-radius: 100%;
-        transform: translate(-50%,-50%);
-    }
-
-    .card.load p.play
-    {
-        border: 1px dashed white;
-    }
-
-    .card.video p.play,
-    .card.load  p.play
-    {
-        display: block;
     }
 
     .card p.title
@@ -149,7 +128,7 @@
   <body>
     <div class="container">
       <div class='nav'>
-        <input id="find" type="text" onkeypress="press(event)">
+        <input id="find" type="text" onkeypress="press(event)" autocomplete="off">
       </div>
       <div id="deck"></div>
     </div>
@@ -257,7 +236,6 @@
         `<div id="${ info.link }" class="card ${ video ? 'video' : '' }" data-link="${ info.link }">
            <a href="javascript:void(0)" onclick="action(this.parentElement)">
              <img referrerPolicy="no-referrer" src="${ info.image }" />
-             <p class="play">&#9654;</p>
              <p class="title">
                <a href="${ info.link }" target="new" rel="noreferrer">${ truncate(info.title, 64) }</a>
              </p>
@@ -265,6 +243,16 @@
              <p class="index"></p>
            </a>
          </div>` : '';
+    }
+
+    // --- make a video element
+
+    function video(link, autoplay = true) {
+        return `
+          <video controls ${ autoplay ? 'autoplay' : ''}>
+            <source src="${ link }" type="video/mp4">
+          </video>
+          <p class="index"></p>`;
     }
 
     // --- load a url and make the card output
@@ -281,6 +269,7 @@
             if (found) {
                 found.dataset.link = info.link;
                 found.classList.add('video');
+                found.innerHTML = video(info.link);
                 items.map(i => have(i.link) ? 0 : found.insertAdjacentHTML('afterend', card(i)));
             }
             else {
@@ -295,14 +284,10 @@
     // --- process a card action
 
     function action(card) {
-        let url = card.getAttribute('data-link');
-
-        if (card.classList.contains('video')) {
-            window.open(url, '_blank');
-        }
-        else if (card.classList.contains('load') !== true) {
+        if (card.classList.contains('load' ) !== true &&
+            card.classList.contains('video') !== true ) {
             card.classList.add('load');
-            load(url).then(() => card.classList.remove('load'));
+            load(card.getAttribute('data-link')).then(() => card.classList.remove('load'));
         }
     }
 
@@ -324,11 +309,27 @@
             let url = site ? site.search.replace('[TERM]', encodeURI(term)) : '';
 
             window.scroll({ top: 0 });
-            DECK.innerHTML = '';
+            DECK.innerHTML = 'Searching...';
             FIND.disabled  = true;
 
             load(url).then(() => FIND.disabled = false);
         }
+    }
+
+    // --- initialisation handling
+
+    function init(query) {
+        FIND.placeholder = LIST.map(i => i.ident).sort().join(' | ');
+        FIND.focus();
+        FIND.value = query;
+
+        let name = query.toLowerCase().replace(/(^|\s)\S/g, i => i.toUpperCase());
+        let base = name.split(' ').slice(1).join(' ');
+        let site = name.split(' ').shift().toLowerCase();
+
+        document.title = [base, site, document.title].filter(i => i).join(' » ');
+
+        search();
     }
 
     // --- ttb handler
@@ -372,7 +373,7 @@
         let film = res1 > res2 ? info?.video_url : info?.video_alt_url;
 
         return {
-            link   : (film || '').replace(/\/$/, ''),
+            link   : film || '',
             image  : info?.preview_url || '',
             title  : doc.fromText('h1'),
             items  : doc.forAll('.list-videos a.item').map(i => ({
@@ -386,11 +387,7 @@
 
     // --- entry point
 
-    FIND.placeholder = LIST.map(i => i.ident).sort().join(' | ');
-    FIND.focus();
-    FIND.value = PARM.get('q') || '';
-
-    search();
+    init(PARM.get('q') || '');
 
     // --- unload protection
 
