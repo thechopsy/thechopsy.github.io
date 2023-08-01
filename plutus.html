@@ -271,11 +271,9 @@
                 found.dataset.link = info.link;
                 found.classList.add('video');
                 found.innerHTML = video(info.link);
-                items.map(i => have(i.link) ? 0 : found.insertAdjacentHTML('afterend', card(i)));
             }
-            else {
-                items.map(i => DECK.insertAdjacentHTML('beforeend',card(i)));
-            }
+
+            items.map(i => have(i.link) ? 0 : DECK.insertAdjacentHTML('beforeend', card(i)));
 
             let list = [ ...DECK.querySelectorAll('.card') ]
             list.forEach((card, idx) => card.querySelector('.index').textContent = `${ idx + 1 } of ${ list.length }`);
