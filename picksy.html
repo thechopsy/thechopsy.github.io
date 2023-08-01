@@ -467,8 +467,8 @@
 
   function init(query) {
       if (query.length) {
-          let name = query.toLowerCase().replace(/(^|\s)\S/g, i => i.toUpperCase());
-          document.title = [name, document.title].join(' » ');
+          let name = query.toLowerCase().replace('+', ' ').replace(/(^|\s)\S/g, i => i.toUpperCase());
+          document.title = name; //[name, document.title].join(' » ');
           pics(`?q=${ query }`);
       }
       else {

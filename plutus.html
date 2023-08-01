@@ -328,7 +328,7 @@
         let base = name.split(' ').slice(1).join(' ');
         let site = name.split(' ').shift().toLowerCase();
 
-        document.title = [base, site, document.title].filter(i => i).join(' » ');
+        if (base) document.title = base; //[base, site, document.title].filter(i => i).join(' » ');
 
         search();
     }
