@@ -250,7 +250,7 @@
 
     function video(info, height, autoplay = true) {
         return `
-          <video controls ${ autoplay ? 'autoplay' : ''} style="height:${ height }px">
+          <video controls ${ autoplay ? 'autoplay' : ''} style="height:${ height }px" onplay="playback(this.parentElement, 1)" onpause="playback(this.parentElement, 0)">
             <source src="${ info.link }" type="video/mp4">
           </video>
           <p class="title">${ truncate(info.title, 64) }</p>
@@ -288,6 +288,17 @@
             card.classList.contains('video') !== true ) {
             card.classList.add('load');
             load(card.getAttribute('data-link')).then(() => card.classList.remove('load'));
+        }
+    }
+
+    // --- process a playback event
+
+    function playback(card, playing) {
+        card.querySelector('.title').classList.toggle('hidden', playing);
+        card.querySelector('.index').classList.toggle('hidden', playing);
+
+        if (playing) {
+            DECK.querySelectorAll('video').forEach(i => i.parentElement.id === card.id ? 0 : i.pause());
         }
     }
 
