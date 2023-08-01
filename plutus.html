@@ -248,11 +248,12 @@
 
     // --- make a video element
 
-    function video(link, autoplay = true) {
+    function video(info, height, autoplay = true) {
         return `
-          <video controls ${ autoplay ? 'autoplay' : ''}>
-            <source src="${ link }" type="video/mp4">
+          <video controls ${ autoplay ? 'autoplay' : ''} style="height:${ height }px">
+            <source src="${ info.link }" type="video/mp4">
           </video>
+          <p class="title">${ truncate(info.title, 64) }</p>
           <p class="index"></p>`;
     }
 
@@ -270,7 +271,7 @@
             if (found) {
                 found.dataset.link = info.link;
                 found.classList.add('video');
-                found.innerHTML = video(info.link);
+                found.innerHTML = video(info, found.querySelector('a img').clientHeight);
             }
 
             items.map(i => have(i.link) ? 0 : DECK.insertAdjacentHTML('beforeend', card(i)));
