@@ -169,7 +169,7 @@
     // --- constants
 
     const PARM = new URLSearchParams(window.location.search);
-    const HTML = decrypt('U2FsdGVkX19l8aK6EPKNZaZkuUVCEOTASjKzPtPOhvjxA4c0ibavfKoGXc1RalaF5ze6TsmynV1wL8Qrm7G3XpKToguWLywgfp4hrVAFP+xiqvgxiDcjleTqTielRMar', PARM.get('k') || '');
+    const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
     const DECK = document.getElementById('deck');
     const FIND = document.getElementById('find');
     const LIST = [
