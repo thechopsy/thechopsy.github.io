@@ -17,22 +17,58 @@
     body
     {
         font-family: sans-serif;
-        background: black;
         margin: 0;
         padding: 0;
-        color: whitesmoke;
+    }
+
+    a,
+    a:hover,
+    a:visited,
+    a:active
+    {
+        text-decoration: none;
+        color: black;
     }
 
     .container
     {
         margin: 0 auto;
         max-width: 800px;
+        margin-top: 15px;
+    }
+
+    #site {
+        width: calc(100% - 30px);
+        margin: 10px;
+        font-size: 1rem;
+        padding: 4px;
+    }
+
+    .card {
+        width: calc(100% - 30px);
+        border: 1px solid grey;
+        border-radius: 10px;
+        margin: 10px;
+        margin-bottom: 15px;
+        padding: 8px;
+        white-space: normal;
+        word-wrap: break-word;
+        box-shadow: 0px 3px 15px rgba(0,0,0,0.2);
+    }
+
+    .card img {
+        width: 100%;
+    }
+
+    .card.video {
+        border-color: indianred;
     }
 
     </style>
   </head>
   <body>
     <div class="container">
+      <input id="site" value="" />
       <div id="deck"></div>
     </div>
     <script>
@@ -47,7 +83,8 @@
     const PARM = new URLSearchParams(window.location.search);
     const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
     const DECK = document.getElementById('deck');
-    const VIDS = /["']([^"']+\.mp4)["']/g;
+    const SITE = document.getElementById('site');
+    const VIDS = /["']([^"']+\.mp4)[/]?["']/g;
 
     // --- grab a site page
 
@@ -74,16 +111,40 @@
         return relative(url) ? origin + url : url;
     }
 
+    // --- makes a url to browse a page
+
+    function goto(url) {
+        return `scala.html?k=${ PARM.get('k') }&url=${ url }`;
+    }
+
+    // --- clears any existing cards
+
+    function clear() {
+        DECK.innerHTML = '';
+    }
+
+    // --- inserts a new card
+
+    function card(body, type) {
+        DECK.querySelectorAll('.prompt').forEach(i => i.remove());
+        DECK.innerHTML += `<div class="card ${ type }">${ body }</div>`;
+    }
+
     // --- browse the url
 
     function browse(url) {
+        clear();
+        card('Loading...', 'prompt');
+
+        SITE.value = url;
         let parts = new URL(url);
 
         grab(url).then(doc => {
-            let text = [];
 
             while((match = VIDS.exec(doc.innerHTML)) !== null) {
-                text.push(`<a href="${ match[1] }" target="new">${ match[1] }</a>`);
+                if (match[1].toLowerCase().includes('thumb') === false) {
+                    card(`<a href="${ match[1] }" target="new">${ match[1] }</a>`, 'video');
+                }
             }
 
             doc.querySelectorAll('a').forEach(i => {
@@ -93,23 +154,25 @@
 
                 if (path) {
                     let href = absolute(path, parts.origin);
-                    let link = `<a href="#" onclick="browse('${ href }')">[TEXT]</a><br/>${ href }`;
+                    let link = `<a href="${ goto(href) } ">[TEXT]<br/>${ href }</a>`;
 
                     if (img) {
                         let src = absolute(img.getAttribute('thumb') || img.getAttribute('src'), parts.origin);
-                        text.push(link.replace('[TEXT]', `<img src="${ src }" /><br/>${ txt }`));
+                        card(link.replace('[TEXT]', `<img src="${ src }" /><br/>${ txt }`));
                     }
                     else {
-                        text.push(link.replace('[TEXT]', `${ txt }`));
+                        card(link.replace('[TEXT]', `${ txt }`));
                     }
-
-                    text.push('<hr/>');
                 }
             });
-
-            DECK.innerHTML = text.join('<br/>');
         });
     }
+
+    SITE.addEventListener('keypress', event => {
+        if (event.key === 'Enter') {
+            window.location = goto(SITE.value);
+        }
+    });
 
     // --- entry point
 
