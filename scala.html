@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="referrer" content="no-referrer">
-  <link rel="shortcut icon" type="image/png" href="scala.png" />
+  <link rel="shortcut icon" type="image/x-icon" href="scala.svg" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <title>Scala</title>
   <style>
@@ -189,11 +189,15 @@
 
                 for(let ref in links) {
                     let body = [];
+                    let txts = [ ...new Set(links[ref].txts.map(i => (i || '').trim()).filter(i => i)) ];
+                    let pics = [ ...new Set(links[ref].pics.map(i => (i || '').trim()).filter(i => i)) ];
 
-                    [ ...new Set(links[ref].txts.filter(i => i).map(i => i.trim())) ].forEach(i => body.push(`<p>${ i }</p>`));
-                    [ ...new Set(links[ref].pics.filter(i => i).map(i => i.trim())) ].forEach(i => body.push(`<img src="${ i }" />`));
+                    if (txts.length === 1 && txts[0].length < 5) continue;
 
-                    if (body) {
+                    txts.forEach(i => body.push(`<p>${ i }</p>`));
+                    pics.forEach(i => body.push(`<img src="${ i }" />`));
+
+                    if (body.length) {
                         body.push(`<p><tt>${ ref }</tt></p>`);
                         card(`<a href="${ goto(ref) }">${ body.join('') }</a>`);
                     }
