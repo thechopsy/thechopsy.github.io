@@ -47,7 +47,7 @@
     .card {
         width: calc(100% - 30px);
         border: 1px solid grey;
-        border-radius: 10px;
+        border-radius: 8px;
         margin: 10px;
         margin-bottom: 15px;
         padding: 8px;
@@ -60,8 +60,16 @@
         width: 100%;
     }
 
+    .card p {
+        margin: 8px 0;
+    }
+
     .card.video {
         border-color: indianred;
+    }
+
+    .card.prompt {
+        border-color: grey;
     }
 
     </style>
@@ -86,6 +94,11 @@
     const SITE = document.getElementById('site');
     const VIDS = /["']([^"']+\.mp4)[/]?["']/g;
 
+    // --- reader options
+
+    const EXCLUDE = { VIDEO: ['thumb', 'preview'] };
+    const READER  = { PIC  : ['thumb', 'data-src', 'src'] };
+
     // --- grab a site page
 
     function grab(url) {
@@ -102,7 +115,7 @@
     // --- check if a url is relative
 
     function relative(url) {
-        return url.startsWith('http') === false;
+        return url && url.startsWith('http') === false;
     }
 
     // --- make a url absolute if not already
@@ -114,7 +127,7 @@
     // --- makes a url to browse a page
 
     function goto(url) {
-        return `scala.html?k=${ PARM.get('k') }&url=${ url }`;
+        return `${ window.location.pathname }?k=${ PARM.get('k') }&url=${ url }`;
     }
 
     // --- clears any existing cards
@@ -130,6 +143,12 @@
         DECK.innerHTML += `<div class="card ${ type }">${ body }</div>`;
     }
 
+    // --- inserts a prompt
+
+    function prompt(text) {
+        card(text, 'prompt');
+    }
+
     // --- browse the url
 
     function browse(url) {
@@ -138,38 +157,58 @@
         SITE.value = url;
 
         if (url) {
-            card('Loading...', 'prompt');
+            prompt('Downloading...');
             let parts = new URL(url);
 
             grab(url).then(doc => {
+                prompt('Reading...');
 
                 while((match = VIDS.exec(doc.innerHTML)) !== null) {
-                    if (match[1].toLowerCase().includes('thumb') === false) {
+                    let include = EXCLUDE.VIDEO.reduce((acc, curr) => acc && match[1].toLowerCase().includes(curr) === false, true);
+                    if (include) {
                         card(`<a href="${ match[1] }" target="new">${ match[1] }</a>`, 'video');
                     }
                 }
 
+                let links = {};
+
                 doc.querySelectorAll('a').forEach(i => {
-                    let path = i.getAttribute('href');
-                    let img  = i.querySelector('img');
-                    let txt  = i.textContent || '';
+                    let ref = absolute(i.getAttribute('href'), parts.origin);
+                    let img = i.querySelector('img');
+                    let txt = i.textContent;
+                    let src = READER.PIC.reduce((acc, curr) => acc || (img ? img.getAttribute(curr) : undefined), undefined);
+                    let pic = absolute(src, parts.origin);
 
-                    if (path) {
-                        let href = absolute(path, parts.origin);
-                        let link = `<a href="${ goto(href) } ">[TEXT]<br/>${ href }</a>`;
-
-                        if (img) {
-                            let src = absolute(img.getAttribute('thumb') || img.getAttribute('src'), parts.origin);
-                            card(link.replace('[TEXT]', `<img src="${ src }" /><br/>${ txt }`));
-                        }
-                        else {
-                            card(link.replace('[TEXT]', `${ txt }`));
-                        }
+                    if (links.hasOwnProperty(ref) === false) {
+                        links[ref] = { txts: [], pics: [] };
                     }
+
+                    links[ref].txts.push(txt);
+                    links[ref].pics.push(pic);
                 });
+
+                for(let ref in links) {
+                    let body = [];
+
+                    links[ref].txts.filter(i => i).forEach(i => body.push(`<p>${ i }</p>`));
+                    links[ref].pics.filter(i => i).forEach(i => body.push(`<img src="${ i }" />`));
+                    body.push(`<p><tt>${ ref }</tt></p>`);
+
+                    card(`<a href="${ goto(ref) }">${ body.join('') }</a>`);
+                }
             });
         }
     }
+
+    // --- website input handlers
+
+    SITE.addEventListener('input', () => {
+        SITE.value = SITE.value.toLowerCase();
+    });
+
+    SITE.addEventListener('focus', () => {
+        SITE.select();
+    });
 
     SITE.addEventListener('keypress', event => {
         if (event.key === 'Enter') {
@@ -182,10 +221,6 @@
     // --- entry point
 
     browse(PARM.get('url') || '');
-
-    // --- unload protection
-
-    // window.onbeforeunload = (() => true)
 
     </script>
   </body>
