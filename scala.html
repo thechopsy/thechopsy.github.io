@@ -93,10 +93,11 @@
     const DECK = document.getElementById('deck');
     const SITE = document.getElementById('site');
     const VIDS = /["']([^"']+\.mp4)[/]?["']/g;
+    const PICS = /["']([^"']+\.jpg)[/]?["']/g;
 
     // --- reader options
 
-    const EXCLUDE = { VIDEO: ['thumb', 'preview'] };
+    const EXCLUDE = { VIDEO: ['thumb', 'preview'], WIDTH: 250 };
     const READER  = { PIC  : ['thumb', 'data-src', 'src'] };
 
     // --- grab a site page
@@ -112,6 +113,11 @@
         });
     }
 
+    // --- cleans a url
+
+    function clean(url) {
+        return url ? url.replaceAll('\\/', '/') : url;
+    }
     // --- check if a url is relative
 
     function relative(url) {
@@ -121,7 +127,7 @@
     // --- make a url absolute if not already
 
     function absolute(url, origin) {
-        return relative(url) ? origin + url : url;
+        return clean(relative(url) ? origin + url : url);
     }
 
     // --- makes a url to browse a page
@@ -149,6 +155,12 @@
         card(text, 'prompt');
     }
 
+    // --- checks if an image is worth showing
+
+    function image(img) {
+        if(img.naturalWidth < EXCLUDE.WIDTH) img.remove();
+    }
+
     // --- browse the url
 
     function browse(url) {
@@ -166,7 +178,8 @@
                 while((match = VIDS.exec(doc.innerHTML)) !== null) {
                     let include = EXCLUDE.VIDEO.reduce((acc, curr) => acc && match[1].toLowerCase().includes(curr) === false, true);
                     if (include) {
-                        card(`<a href="${ match[1] }" target="new">${ match[1] }</a>`, 'video');
+                        let media = absolute(match[1], parts.origin);
+                        card(`<a href="${ media }" target="new">${ media }</a>`, 'video');
                     }
                 }
 
@@ -185,6 +198,13 @@
 
                     links[ref].txts.push(txt);
                     links[ref].pics.push(pic);
+
+                    if (i.getAttribute('style')) {
+                        match = PICS.exec(i.getAttribute('style'));
+                        if (match !== null) {
+                            links[ref].pics.push(absolute(match[1], parts.origin));
+                        }
+                    }
                 });
 
                 for(let ref in links) {
@@ -195,9 +215,9 @@
                     if (txts.length === 1 && txts[0].length < 5) continue;
 
                     txts.forEach(i => body.push(`<p>${ i }</p>`));
-                    pics.forEach(i => body.push(`<img src="${ i }" />`));
+                    pics.forEach(i => body.push(`<img src="${ i }" onload="image(this)"/>`));
 
-                    if (body.length) {
+                    if (body.length && ref !== 'null') {
                         body.push(`<p><tt>${ ref }</tt></p>`);
                         card(`<a href="${ goto(ref) }">${ body.join('') }</a>`);
                     }
