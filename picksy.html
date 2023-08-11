@@ -36,16 +36,16 @@
     #alert
     {
         position: fixed;
-        display: none;
         background: white;
         padding: 10px 14px;
         border: 1px dashed #999;
         border-radius: 8px;
-        box-shadow: 0px 3px 15px rgba(0,0,0,0.25);
-        top: 50%;
+        box-shadow: 0px 3px 15px rgba(0,0,0,0.5);
+        top: -100px;
         left: 50%;
         font-size: 1.25rem;
-        transform: translate(-50%, -50%);
+        transform: translateX(-50%);
+        transition: top 0.3s;
     }
 
     #alert.fail
@@ -55,7 +55,7 @@
 
     #alert.show
     {
-        display: block;
+        top: 50px;
     }
 
     #index
@@ -350,6 +350,7 @@
           item.onclick   = event => {
               CTRL.INDEX.ITEMS.querySelectorAll('li').forEach(j => j.classList.remove('active'));
               event.target.classList.add('active');
+              event.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
               ctx.curr = idx;
               pics(i.href);
           };
@@ -440,7 +441,7 @@
   // === touch handling ========================================================
 
   const SWIPE = { DIR: { LEFT: 1, RIGHT: 2, UP: 3, DOWN: 4 }, MIN: 10 };
-  const PRESS = { LONG: 1500 };
+  const PRESS = { LONG: 1250 };
 
   let sx = sy = 0;
   let tm = 0;
