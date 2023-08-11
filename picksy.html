@@ -3,7 +3,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <link rel="shortcut icon" type="image/x-icon" href="picksy.svg" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <title>Picksy</title>
   <style>
@@ -109,26 +108,12 @@
     }
 
     #album .title,
-    #album .count,
-    #album .click
+    #album .count
     {
         position: fixed;
         text-align: center;
         background-color: rgb(255, 255, 255, 0.5);
         z-index: 2;
-    }
-
-    #album .click {
-        bottom: 10px;
-        right: 10px;
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        color: #333;
-        line-height: 2.75rem;
-        font-size: 1.75rem;
-        cursor: pointer;
-        border: 1px solid #888;
     }
 
     #album .title
@@ -243,28 +228,6 @@
       setTimeout(() => { alert(false) }, 1500);
   }
 
-  // --- returns all the current buttons
-
-  function buttons() {
-      return CTRL.ALBUM.TOTAL.querySelectorAll('.click');
-  }
-
-  // --- makes and adds a new button
-
-  function button(icon, clicked) {
-      const POS = { MARGIN: 10, HEIGHT: 60 };
-      let butt = document.createElement('div');
-
-      butt.classList.add('material-symbols-outlined');
-      butt.classList.add('click');
-
-      butt.innerHTML    = icon;
-      butt.onclick      = clicked;
-      butt.style.bottom = `${ buttons().length * POS.HEIGHT + POS.MARGIN }px`;
-
-      CTRL.ALBUM.TOTAL.appendChild(butt);
-  }
-
   // --- loads the tags
 
   function tags() {
@@ -364,23 +327,12 @@
       CTRL.ALBUM.TOTAL.classList.add   ('show');
 
       CTRL.ALBUM.IMAGE.style.backgroundImage = `url('${ curr.href }')`;
+      CTRL.ALBUM.IMAGE.dataset.href          = curr.href;
       CTRL.ALBUM.COUNT.textContent           = `${ ctx.curr + 1 } / ${ ctx.pics.length } : ${ state.length }`;
       CTRL.ALBUM.TITLE.textContent           = curr.desc;
       CTRL.ALBUM.VISIT.href                  = curr.link;
       CTRL.ALBUM.VISIT.style.display         = list ? 'block' : 'none';
       CTRL.CACHE.src                         = next?.href || '';
-
-      buttons().forEach(i => i.remove());
-
-      if (!list) {
-          button('save' , () => { window.open(curr.href, 'new') });
-      }
-
-      if (who) {
-          let name = who.desc.toLowerCase().replace(' ', '+');
-          button('movie', () => { window.open(`/plutus.html?k=${ PARM.get('k') }&q=xoz+${ name }`, 'new') });
-          button('star' , () => { window.open(`?k=${ PARM.get('k') }&q=${ name }`, 'new') });
-      }
   }
 
   // --- renders an index
@@ -462,6 +414,12 @@
       }
   }
 
+  // --- lonf press hander
+
+  function press(item) {
+      if (item.dataset.href) window.open(item.dataset.href, "new");
+  }
+
   // --- initialisation handling
 
   function init(query) {
@@ -482,12 +440,15 @@
   // === touch handling ========================================================
 
   const SWIPE = { DIR: { LEFT: 1, RIGHT: 2, UP: 3, DOWN: 4 }, MIN: 10 };
+  const PRESS = { LONG: 1500 };
 
   let sx = sy = 0;
+  let tm = 0;
 
   document.addEventListener('touchstart', e => {
       sx = e.touches[0].clientX;
       sy = e.touches[0].clientY;
+      tm = setTimeout(() => press(e.target), PRESS.LONG);
   });
 
   document.addEventListener('touchmove', e => {
@@ -504,6 +465,10 @@
 
       if (mv) {
           hz ? swipe(dx > 0 ? SWIPE.DIR.RIGHT : SWIPE.DIR.LEFT) : swipe(dy > 0 ? SWIPE.DIR.DOWN : SWIPE.DIR.UP);
+      }
+
+      if (tm) {
+          tm = clearTimeout(tm);
       }
   });
 
