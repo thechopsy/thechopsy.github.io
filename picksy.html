@@ -163,6 +163,7 @@
   // --- constants
 
   const SIZE = 256;
+  const SITE = document.title;
   const PARM = new URLSearchParams(window.location.search);
   const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
   const JSON = decrypt('U2FsdGVkX18vGJItwOZOH9ulbSt9tU13ZZYFOLfVC07xv2OqKvDbEl3MWaKyY0Zz4K1vKR4Wc91ryvduLgXeC5Ke/G+h5XWDCX/5JmeAbEFkmw3eHR7i35ROAooONDmy', PARM.get('k') || ''); // see lambda/json
@@ -237,6 +238,8 @@
           let list2 = [ ...doc2.querySelectorAll('.list-item a') ];
           let next  = {
               type: 'index',
+              from: '',
+              site: '',
               curr: -1,
               list: [...list1, ...list2].map(i => ({
                   href: i.getAttribute('href'),
@@ -259,7 +262,7 @@
 
   // --- loads pics from a tag
 
-  function pics(href) {
+  function pics(href, title) {
       const TOKENS = [ '?q=', 'channels/', 'pornstars/' ];
 
       let tag = href.replace(/^\/+|\/+$/g, '');
@@ -276,6 +279,8 @@
       data(url).then(list => {
           let next = {
               type: 'album',
+              from: tag,
+              site: title,
               curr: 0,
               pics: list.map(i => ({ href: i.t_url_460, link: i.g_url, desc: i.desc })).sort(() => Math.random() - 0.5),
               more: []
@@ -352,7 +357,7 @@
               event.target.classList.add('active');
               event.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
               ctx.curr = idx;
-              pics(i.href);
+              pics(i.href, i.desc);
           };
 
           CTRL.INDEX.ITEMS.appendChild(item);
@@ -366,6 +371,18 @@
 
   function render() {
       let ctx = state[state.length - 1];
+
+      if (ctx.from !== undefined) {
+          if (ctx.from.length) {
+              history.replaceState(null, null, `?k=${ PARM.get('k') }&q=${ ctx.from }&t=${ ctx.site }`);
+          }
+          else {
+              history.replaceState(null, null, `?k=${ PARM.get('k') }`);
+          }
+
+          document.title = ctx.site || SITE;
+      }
+
       ctx.type === 'index' ? index(ctx) : album(ctx);
   }
 
@@ -429,20 +446,13 @@
 
   // --- initialisation handling
 
-  function init(query) {
-      if (query.length) {
-          let name = query.toLowerCase().replace('+', ' ').replace(/(^|\s)\S/g, i => i.toUpperCase());
-          document.title = name; //[name, document.title].join(' » ');
-          pics(`?q=${ query }`);
-      }
-      else {
-          tags();
-      }
+  function init(query, title) {
+      query.length ? pics(query, title) : tags();
   }
 
   // --- entry point
 
-  init(PARM.get('q') || '');
+  init(PARM.get('q') || '', PARM.get('t') || '');
 
   // === touch handling ========================================================
 
