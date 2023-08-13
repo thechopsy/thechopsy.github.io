@@ -415,9 +415,15 @@
       }
   }
 
-  // --- lonf press hander
+  // --- long press hander
 
-  function press(item) {
+  function longpress(item) {
+      // do nothing
+  }
+
+  // --- long press hander
+
+  function doubletap(item) {
       if (item.dataset.href) window.open(item.dataset.href, "new");
   }
 
@@ -441,15 +447,15 @@
   // === touch handling ========================================================
 
   const SWIPE = { DIR: { LEFT: 1, RIGHT: 2, UP: 3, DOWN: 4 }, MIN: 10 };
-  const PRESS = { LONG: 1250 };
+  const PRESS = { LONG: 1250, DOUBLE: 300 };
 
   let sx = sy = 0;
-  let tm = 0;
+  let press = { lng: 0, lst: 0 };
 
   document.addEventListener('touchstart', e => {
       sx = e.touches[0].clientX;
       sy = e.touches[0].clientY;
-      tm = setTimeout(() => press(e.target), PRESS.LONG);
+      press.lng = setTimeout(() => longpress(e.target), PRESS.LONG);
   });
 
   document.addEventListener('touchmove', e => {
@@ -468,9 +474,12 @@
           hz ? swipe(dx > 0 ? SWIPE.DIR.RIGHT : SWIPE.DIR.LEFT) : swipe(dy > 0 ? SWIPE.DIR.DOWN : SWIPE.DIR.UP);
       }
 
-      if (tm) {
-          tm = clearTimeout(tm);
+      if (Date.now() - press.lst < PRESS.DOUBLE) {
+          doubletap(e.target);
       }
+
+      press.lst = Date.now();
+      press.lng = clearTimeout(press.lng);
   });
 
   // === key handling ==========================================================
