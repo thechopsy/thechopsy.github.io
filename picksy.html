@@ -483,6 +483,7 @@
 
       if (mv) {
           hz ? swipe(dx > 0 ? SWIPE.DIR.RIGHT : SWIPE.DIR.LEFT) : swipe(dy > 0 ? SWIPE.DIR.DOWN : SWIPE.DIR.UP);
+          press.lst = 0;
       }
 
       if (Date.now() - press.lst < PRESS.DOUBLE) {
