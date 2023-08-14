@@ -58,9 +58,13 @@
         text-transform: lowercase;
     }
 
+    .nav #find.nothing {
+        color: indianred;
+    }
+
     .nav #find:disabled {
         background-color: white;
-        color: #888;
+        color: #bbb;
     }
 
     .card
@@ -225,7 +229,7 @@
 
     function grab(scrape, url) {
         return fetch(href(scrape, url))
-        .then(res => res.json())
+        .then(res => res.status === 200 ? res.json() : { text: '' })
         .then(out => out.text)
         .then(txt => new DOMParser().parseFromString(txt, 'text/html'));
     }
@@ -265,6 +269,7 @@
         return grab(site.scrape, url)
         .then(doc  => site.handle(doc))
         .then(info => {
+            let start = [ ...DECK.querySelectorAll('.card') ]
             let found = have(url);
             let items = (info.items || []).sort(() => 0.5 - Math.random());
 
@@ -278,6 +283,8 @@
 
             let list = [ ...DECK.querySelectorAll('.card') ]
             list.forEach((card, idx) => card.querySelector('.index').textContent = `${ idx + 1 } of ${ list.length }`);
+
+            return list.length - start.length;
         });
     }
 
@@ -323,7 +330,13 @@
             DECK.innerHTML = 'Searching...';
             FIND.disabled  = true;
 
-            load(url).then(() => FIND.disabled = false);
+            load(url).then(added => {
+                FIND.disabled = false;
+                FIND.classList.toggle('nothing', added === 0);
+            });;
+        }
+        else {
+            FIND.classList.toggle('nothing', true);
         }
     }
 
