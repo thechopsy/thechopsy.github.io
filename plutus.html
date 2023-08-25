@@ -38,6 +38,13 @@
         max-width: 800px;
     }
 
+    .prompt {
+        margin: 10px 0;
+        width: 100%;
+        text-align: center;
+        color: whitesmoke;
+    }
+
     .nav
     {
         width: 100%;
@@ -178,24 +185,27 @@
     const FIND = document.getElementById('find');
     const LIST = [
         {
-            ident: 'ttb',
-            handle: ttb,
+            ident : 'ttb',
+            handle:  ttb,
             scrape: 'source',
             search: 'https://www.trannytube.net/search/[TERM]',
+            home  : 'https://www.trannytube.net/',
             domain: 'trannytube.net'
         },
         {
-            ident: 'spk',
-            handle: spk,
+            ident : 'spk',
+            handle:  spk,
             scrape: 'render',
             search: 'https://spankbang.com/s/[TERM]/', // traling slash is needed - for some reason
+            home  : 'https://spankbang.com/s/',
             domain: 'spankbang.com'
         },
         {
-            ident: 'xoz',
-            handle: xoz,
+            ident : 'xoz',
+            handle:  xoz,
             scrape: 'source',
             search: 'https://www.xozilla.com/search/[TERM]/', // traling slash is needed - for some reason
+            home  : 'https://www.xozilla.com/',
             domain: 'xozilla.com'
         },
     ];
@@ -284,6 +294,7 @@
             let list = [ ...DECK.querySelectorAll('.card') ]
             list.forEach((card, idx) => card.querySelector('.index').textContent = `${ idx + 1 } of ${ list.length }`);
 
+            DECK.querySelectorAll('.prompt').forEach(i => i.remove());
             return list.length - start.length;
         });
     }
@@ -324,10 +335,10 @@
         let site = LIST.find(i => i.ident === tag);
 
         if (site) {
-            let url = site ? site.search.replace('[TERM]', encodeURI(term)) : '';
+            let url = site ? term ? site.search.replace('[TERM]', encodeURI(term)) : site.home : '';
 
             window.scroll({ top: 0 });
-            DECK.innerHTML = 'Searching...';
+            DECK.innerHTML = `<p class="prompt">Loading ${ url }</p>`;
             FIND.disabled  = true;
 
             load(url).then(added => {
