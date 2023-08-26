@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="referrer" content="no-referrer">
+  <link rel="shortcut icon" type="image/x-icon" href="magsy.svg" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <title>Magsy</title>
+  <style>
+
+    *
+    {
+        box-sizing: border-box;
+    }
+
+    body
+    {
+        font-family: sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    a,
+    a:hover,
+    a:visited,
+    a:active
+    {
+        text-decoration: none;
+        color: black;
+    }
+
+    .container
+    {
+        margin: 0 auto;
+        max-width: 800px;
+        margin-top: 15px;
+    }
+
+    .card {
+        width: calc(100% - 30px);
+        border: 1px solid grey;
+        border-radius: 8px;
+        margin: 10px;
+        margin-bottom: 15px;
+        padding: 8px;
+        white-space: normal;
+        word-wrap: break-word;
+        box-shadow: 0px 3px 15px rgba(0,0,0,0.2);
+    }
+
+    .card img {
+        width: 100%;
+    }
+
+    .card p {
+        margin: 8px 0;
+    }
+
+    .card.video {
+        border-color: indianred;
+    }
+
+    .card.prompt {
+        border-color: grey;
+    }
+
+    img {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div id="deck"></div>
+    </div>
+    <script>
+
+    // --- security function
+
+    function encrypt(text, passphrase) { return CryptoJS.AES.encrypt(text, passphrase).toString() }
+    function decrypt(text, passphrase) { return CryptoJS.AES.decrypt(text, passphrase).toString(CryptoJS.enc.Utf8) }
+
+    // --- dom helpers
+
+    Node.prototype.fromAttr = function(s, a) {
+        return this.querySelector(s) ? this.querySelector(s).getAttribute(a) : '';
+    }
+
+    Node.prototype.fromData = function(s, a) {
+        return this.querySelector(s) ? this.querySelector(s).getAttribute(`data-${ a }`) : '';
+    }
+
+    Node.prototype.fromMeta = function(p) {
+        return this.fromAttr(`meta[property="${ p }"]`, 'content');
+    }
+
+    Node.prototype.fromText = function(s) {
+        return this.querySelector(s) ? this.querySelector(s).textContent.trim() : '';
+    }
+
+    Node.prototype.fromRegx = function(s, r) {
+        return this.querySelector(s) ? ((this.querySelector(s).innerHTML.match(r) || [])[1] || '') : ''
+    }
+
+    Node.prototype.forAll = function(s) {
+        return [ ...this.querySelectorAll(s) ];
+    }
+
+    // --- constants
+
+    const PARM = new URLSearchParams(window.location.search);
+    const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
+    const DECK = document.getElementById('deck');
+
+    // --- grab a site page
+
+    function grab(url) {
+        return fetch(HTML + encodeURIComponent(url))
+        .then(res => res.json())
+        .then(out => out.text)
+        .then(txt => {
+            let div = document.createElement('div');
+            div.innerHTML = txt;
+            return div;
+        });
+    }
+
+    // --- inserts a new card
+
+    function card(body, type) {
+        DECK.querySelectorAll('.prompt').forEach(i => i.remove());
+        DECK.innerHTML += `<div class="card ${ type }">${ body }</div>`;
+    }
+
+    // --- inserts a prompt
+
+    function prompt(text) {
+        card(text, 'prompt');
+    }
+
+    // --- browse to the given url
+
+let ctx = {};
+
+    function browse(url) {
+        grab(url).then(doc => {
+            ctx = {
+                img  : doc.fromAttr('#attachementim img', 'src'),
+                path : doc.fromText('#breadcrumbs').split('»').map(i => i.trim()).slice(1, -1),
+                full : doc.fromText('.pagination span').split('of').map(i => i.trim()).pop(),
+                prev : doc.forAll('#pagination-page-top a').find(i => i.textContent.trim() === '<'),
+                next : doc.forAll('#pagination-page-top a').find(i => i.textContent.trim() === '>')
+            }
+
+            ctx.prev   = ctx.prev ? ctx.prev.getAttribute('href') : '';
+            ctx.next   = ctx.next ? ctx.next.getAttribute('href') : '';
+            ctx.strand = (ctx.path.shift() || '');
+            ctx.comic  = (ctx.path.shift() || '').replace(`(${ ctx.strand })`, '').trim();
+            ctx.curr   = parseInt(new URLSearchParams(url).get('no')) || 0;
+            ctx.full   = parseInt(ctx.full) || 0;
+
+            DECK.innerHTML = `
+            <img id="page" src="${ ctx.img }" data-next="${ ctx.next }" data-prev="${ ctx.prev }"/>`;
+    //        <p>${ ctx.curr } of ${ ctx.full }</p>
+      //      <p>${ ctx.strand } - ${ ctx.comic }</p>';
+
+
+            console.dir(ctx);
+        });
+    }
+
+    // --- makes a url to browse a page
+
+    function goto(url) {
+        return `${ window.location.pathname }?k=${ PARM.get('k') }&url=${ encodeURIComponent(url) }`;
+    }
+
+    // --- swipe handling
+
+    function swipe(dir) {
+        let pos = ctx.curr;
+
+        if (dir === SWIPE.DIR.UP   && ctx.curr < ctx.full) ctx.curr++;
+        if (dir === SWIPE.DIR.DOWN && ctx.curr > 0       ) ctx.curr--;
+
+        if (pos !== ctx.curr) {
+            document.getElementById('page').src = ctx.img.replace('-001', '-' + String(ctx.curr).padStart(3, '0'));
+        }
+
+        console.log(ctx.curr, ctx.full);
+    }
+
+    // --- long press hander
+
+    function longpress(item) {
+        // do nothing
+    }
+
+    // --- long press hander
+
+    function doubletap(item) {
+        // do nothing
+    }
+
+    // --- entry point
+
+    browse(PARM.get('url') || 'http://cartoonporncomics.info/gallery/?pid=26391&no=001');
+
+    // === touch handling ========================================================
+
+    const SWIPE = { DIR: { LEFT: 1, RIGHT: 2, UP: 3, DOWN: 4 }, MIN: 10 };
+    const PRESS = { LONG: 1250, DOUBLE: 300 };
+
+    let sx = sy = 0;
+    let press = { lng: 0, lst: 0 };
+
+    document.addEventListener('touchstart', e => {
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+        press.lng = setTimeout(() => longpress(e.target), PRESS.LONG);
+    });
+
+    document.addEventListener('touchmove', e => {
+        e.preventDefault();
+    });
+
+    document.addEventListener('touchend', e => {
+        let ex = e.changedTouches[0].clientX;
+        let ey = e.changedTouches[0].clientY;
+        let dx = ex - sx;
+        let dy = ey - sy;
+        let hz = Math.abs(dx) > Math.abs(dy);
+        let mv = hz ? Math.abs(dx) > SWIPE.MIN : Math.abs(dy) > SWIPE.MIN;
+
+        if (mv) {
+            hz ? swipe(dx > 0 ? SWIPE.DIR.RIGHT : SWIPE.DIR.LEFT) : swipe(dy > 0 ? SWIPE.DIR.DOWN : SWIPE.DIR.UP);
+            press.lst = 0;
+        }
+
+        if (Date.now() - press.lst < PRESS.DOUBLE) {
+            doubletap(e.target);
+        }
+
+        press.lst = Date.now();
+        press.lng = clearTimeout(press.lng);
+    });
+
+    // === key handling ==========================================================
+
+    const KEYS = {
+        'ArrowUp'   : SWIPE.DIR.DOWN,
+        'ArrowDown' : SWIPE.DIR.UP,
+        'ArrowLeft' : SWIPE.DIR.RIGHT,
+        'ArrowRight': SWIPE.DIR.LEFT
+    };
+
+    document.addEventListener('keydown', e => {
+        if (KEYS[e.key]) swipe(KEYS[e.key]);
+    });
+
+    // === unload protection =====================================================
+
+  //  window.onbeforeunload = (() => true)
+
+    </script>
+  </body>
+</html>
