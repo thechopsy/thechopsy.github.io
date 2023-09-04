@@ -66,9 +66,16 @@
         border-color: grey;
     }
 
-    img {
-      max-width: 100%;
-      max-height: 100%;
+    .info p {
+        margin: 8px 0;
+        color: white;
+        font-size: 0.75rem;
+        text-align: center;
+    }
+
+    #page {
+        max-width: 100%;
+        max-height: 100%;
     }
 
     </style>
@@ -164,10 +171,13 @@ let ctx = {};
             ctx.full   = parseInt(ctx.full) || 0;
 
             DECK.innerHTML = `
-            <img id="page" src="${ ctx.img }" data-next="${ ctx.next }" data-prev="${ ctx.prev }"/>`;
-    //        <p>${ ctx.curr } of ${ ctx.full }</p>
-      //      <p>${ ctx.strand } - ${ ctx.comic }</p>';
-
+                <img id="page" src="${ ctx.img }"/>
+                <div class="info">
+                  <p id="info">${ ctx.curr } of ${ ctx.full }</p>
+                  <p>${ ctx.strand }</p>
+                  <p>${ ctx.comic }</p>
+                </div>
+            `;
 
             console.dir(ctx);
         });
@@ -189,9 +199,8 @@ let ctx = {};
 
         if (pos !== ctx.curr) {
             document.getElementById('page').src = ctx.img.replace('-001', '-' + String(ctx.curr).padStart(3, '0'));
+            document.getElementById('info').textContent = `${ ctx.curr } of ${ ctx.full }`;
         }
-
-        console.log(ctx.curr, ctx.full);
     }
 
     // --- long press hander
