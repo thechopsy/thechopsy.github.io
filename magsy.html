@@ -28,23 +28,21 @@
     a:active
     {
         text-decoration: none;
-        color: black;
+        xxxcolor: black;
     }
 
     .container
     {
         margin: 0 auto;
         max-width: 800px;
-        margin-top: 15px;
     }
 
     .card {
+        position: relative;
         width: calc(100% - 30px);
-        border: 1px solid grey;
-        border-radius: 8px;
-        margin: 10px;
-        margin-bottom: 15px;
-        padding: 8px;
+        border: 0;
+        xpadding: 8px;
+        margin: 15px;
         white-space: normal;
         word-wrap: break-word;
         box-shadow: 0px 3px 15px rgba(0,0,0,0.2);
@@ -52,30 +50,48 @@
 
     .card img {
         width: 100%;
+        xheight: 100%;
+        max-width: 100%;
+        border: 1px solid white;
+        xmax-height: 100%;
     }
 
-    .card p {
-        margin: 8px 0;
+    .card p
+    {
+        position: absolute;
+        text-align: center;
+        color: white;
+        padding: 8px 10px;
+        background-color: rgba(0,0,0,0.5);
     }
 
-    .card.video {
-        border-color: indianred;
+    .card p.title
+    {
+        bottom: 10px;
+        width: 100%;
+        font-size: 1rem;
+    }
+
+    .card p.title a
+    {
+        color: whitesmoke;
+        text-decoration: none;
     }
 
     .card.prompt {
-        border-color: grey;
-    }
-
-    .info p {
-        margin: 8px 0;
         color: white;
-        font-size: 0.75rem;
+        font-size: 0.9rem;
         text-align: center;
     }
 
     #page {
         max-width: 100%;
         max-height: 100%;
+    }
+
+    .info p {
+        color: white;
+        text-align: center;
     }
 
     </style>
@@ -122,6 +138,20 @@
     const PARM = new URLSearchParams(window.location.search);
     const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
     const DECK = document.getElementById('deck');
+    const URLS = {
+        CAT: 'http://cartoonporncomics.info/all-categories/',
+        PIC: `http://cartoonporncomics.info/gallery/?pid={ID}&no=001`,
+    }
+
+    // --- running context
+
+    let ctx = { type: '', base: '', curr: 0, last: 0, done: [] };
+
+    // --- truncate text to a maz size
+
+    function truncate(text, max) {
+        return (text.length > max) ? text.slice(0, max - 1) + '&hellip;' : text;
+    }
 
     // --- grab a site page
 
@@ -138,49 +168,105 @@
 
     // --- inserts a new card
 
-    function card(body, type) {
+    function insert(card) {
         DECK.querySelectorAll('.prompt').forEach(i => i.remove());
-        DECK.innerHTML += `<div class="card ${ type }">${ body }</div>`;
+        DECK.insertAdjacentHTML('beforeend', card)
+    }
+
+    // --- make a card element
+
+    function card(link, image, title) {
+        return `
+        <div id="${ link }" class="card" data-link="${ link }">
+          <a href="${ goto(link) }">
+            <img referrerPolicy="no-referrer" src="${ image }" />
+            <p class="title">
+              <a href="${ link }" target="new" rel="noreferrer">${ truncate(title, 64) }</a>
+            </p>
+          </a>
+        </div>`;
     }
 
     // --- inserts a prompt
 
     function prompt(text) {
-        card(text, 'prompt');
+        insert(`<div class="card prompt">${ text }</div>`);
     }
 
-    // --- browse to the given url
+    // --- finds a page number in a url
 
-let ctx = {};
+    function page(url) {
+        return parseInt(url.split('/').filter(i => i).pop()) || 1;
+    }
 
-    function browse(url) {
+    // --- read mag pics
+
+    function pics(url) {
+        ctx.type = 'pics';
+        ctx.base = '';
+
         grab(url).then(doc => {
-            ctx = {
-                img  : doc.fromAttr('#attachementim img', 'src'),
-                path : doc.fromText('#breadcrumbs').split('»').map(i => i.trim()).slice(1, -1),
-                full : doc.fromText('.pagination span').split('of').map(i => i.trim()).pop(),
-                prev : doc.forAll('#pagination-page-top a').find(i => i.textContent.trim() === '<'),
-                next : doc.forAll('#pagination-page-top a').find(i => i.textContent.trim() === '>')
-            }
+            let path   =  doc.fromText('#breadcrumbs').split('»').map(i => i.trim()).slice(1, -1);
+            let strand = (path.shift() || '');
+            let comic  = (path.shift() || '').replace(`(${ strand })`, '').trim();
 
-            ctx.prev   = ctx.prev ? ctx.prev.getAttribute('href') : '';
-            ctx.next   = ctx.next ? ctx.next.getAttribute('href') : '';
-            ctx.strand = (ctx.path.shift() || '');
-            ctx.comic  = (ctx.path.shift() || '').replace(`(${ ctx.strand })`, '').trim();
-            ctx.curr   = parseInt(new URLSearchParams(url).get('no')) || 0;
-            ctx.full   = parseInt(ctx.full) || 0;
+            ctx.page = doc.fromAttr('#attachementim img', 'src');
+            ctx.curr = parseInt(new URLSearchParams(url).get('no')) || 0;
+            ctx.last = parseInt(doc.fromText('.pagination span').split('of').map(i => i.trim()).pop()) || 0;
 
             DECK.innerHTML = `
-                <img id="page" src="${ ctx.img }"/>
+                <img id="page" src="${ ctx.page }"/>
                 <div class="info">
-                  <p id="info">${ ctx.curr } of ${ ctx.full }</p>
-                  <p>${ ctx.strand }</p>
-                  <p>${ ctx.comic }</p>
+                  <p id="info">${ ctx.curr } of ${ ctx.last }</p>
+                  <p>${ strand }</p>
+                  <p>${ comic }</p>
                 </div>
             `;
-
-            console.dir(ctx);
         });
+    }
+
+    // --- reads a mag list
+
+    function list(url) {
+        ctx.type = 'list';
+        ctx.base = url.split('/page/').shift() + '/page';
+
+        prompt(`Loading ${ url }`);
+        grab(url).then(doc => {
+            DECK.querySelectorAll('.prompt').forEach(i => i.remove());
+
+            let categ = url.includes('/all-categories/');
+            let pages = doc.forAll('a.page-numbers:not(.next)').map(i => page(i.href));
+
+            ctx.curr = page(url);
+            ctx.last = Math.max(pages.pop(), ctx.curr);
+            ctx.done.push(ctx.curr);
+
+            let posts = doc.forAll(categ ? '.categoryCard' : 'article.post').map(i => {
+                let href, name, img;
+
+                if (categ) {
+                    href = i.fromAttr('.panelTitle a', 'href');
+                    name = i.fromText('.panelTitle a').replace('( ', '(');
+                    img  = i.fromData('img.lazyload', 'src');
+                }
+                else {
+                    href = URLS.PIC.replace('{ID}', i.getAttribute('id').replace('post-', ''));
+                    name = i.fromText('.entry-title a').replace(/\s*\([^\)]+\)\s*$/, '');
+                    img  = i.fromData('img.lazyload', 'src');
+                }
+
+                if (img && name && href) {
+                    insert(card(href, img, name));
+                }
+            })
+        });
+    }
+
+    // --- handles an inbound url
+
+    function process(url) {
+        url.includes('/gallery/') ? pics(url) : list(url);
     }
 
     // --- makes a url to browse a page
@@ -192,14 +278,16 @@ let ctx = {};
     // --- swipe handling
 
     function swipe(dir) {
-        let pos = ctx.curr;
+        if (ctx.type === 'pics') {
+            let pos = ctx.curr;
 
-        if (dir === SWIPE.DIR.UP   && ctx.curr < ctx.full) ctx.curr++;
-        if (dir === SWIPE.DIR.DOWN && ctx.curr > 0       ) ctx.curr--;
+            if (dir === SWIPE.DIR.UP   && ctx.curr < ctx.last) ctx.curr++;
+            if (dir === SWIPE.DIR.DOWN && ctx.curr > 0       ) ctx.curr--;
 
-        if (pos !== ctx.curr) {
-            document.getElementById('page').src = ctx.img.replace('-001', '-' + String(ctx.curr).padStart(3, '0'));
-            document.getElementById('info').textContent = `${ ctx.curr } of ${ ctx.full }`;
+            if (pos !== ctx.curr) {
+                document.getElementById('page').src = ctx.page.replace('-001', '-' + String(ctx.curr).padStart(3, '0'));
+                document.getElementById('info').textContent = `${ ctx.curr } of ${ ctx.last }`;
+            }
         }
     }
 
@@ -215,9 +303,17 @@ let ctx = {};
         // do nothing
     }
 
+    // --- scroll bottom handler
+
+    function bottom() {
+        if (ctx.type === 'list' && ctx.curr !== ctx.last) {
+            list(`${ ctx.base }/${ ctx.curr + 1}/`);
+        }
+    }
+
     // --- entry point
 
-    browse(PARM.get('url') || 'http://cartoonporncomics.info/gallery/?pid=26391&no=001');
+    process(PARM.get('url') || URLS.CAT);
 
     // === touch handling ========================================================
 
@@ -258,7 +354,7 @@ let ctx = {};
         press.lng = clearTimeout(press.lng);
     });
 
-    // === key handling ==========================================================
+    // === key handling ========================================================
 
     const KEYS = {
         'ArrowUp'   : SWIPE.DIR.DOWN,
@@ -271,9 +367,17 @@ let ctx = {};
         if (KEYS[e.key]) swipe(KEYS[e.key]);
     });
 
-    // === unload protection =====================================================
+    // === scroll handling =====================================================
 
-  //  window.onbeforeunload = (() => true)
+    window.onscroll = function(ev) {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight) {
+            bottom();
+        }
+    };
+
+    // === unload protection ===================================================
+
+    // window.onbeforeunload = (() => true)
 
     </script>
   </body>
