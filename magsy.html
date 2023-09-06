@@ -139,7 +139,8 @@
     const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
     const DECK = document.getElementById('deck');
     const URLS = {
-        CAT: 'http://cartoonporncomics.info/all-categories/',
+        CAT: 'http://cartoonporncomics.info/all-categories',
+        GAL: 'http://cartoonporncomics.info/gallery',
         PIC: `http://cartoonporncomics.info/gallery/?pid={ID}&no=001`,
     }
 
@@ -177,7 +178,7 @@
 
     function card(link, image, title) {
         return `
-        <div id="${ link }" class="card" data-link="${ link }">
+        <div id="${ link }" class="card">
           <a href="${ goto(link) }">
             <img referrerPolicy="no-referrer" src="${ image }" />
             <p class="title">
@@ -235,7 +236,7 @@
         grab(url).then(doc => {
             DECK.querySelectorAll('.prompt').forEach(i => i.remove());
 
-            let categ = url.includes('/all-categories/');
+            let categ = url.startsWith(URLS.CAT);
             let pages = doc.forAll('a.page-numbers:not(.next)').map(i => page(i.href));
 
             ctx.curr = page(url);
@@ -243,21 +244,21 @@
             ctx.done.push(ctx.curr);
 
             let posts = doc.forAll(categ ? '.categoryCard' : 'article.post').map(i => {
-                let href, name, img;
+                let link, name, img;
 
                 if (categ) {
-                    href = i.fromAttr('.panelTitle a', 'href');
+                    link = i.fromAttr('.panelTitle a', 'href');
                     name = i.fromText('.panelTitle a').replace('( ', '(');
                     img  = i.fromData('img.lazyload', 'src');
                 }
                 else {
-                    href = URLS.PIC.replace('{ID}', i.getAttribute('id').replace('post-', ''));
+                    link = URLS.PIC.replace('{ID}', i.getAttribute('id').replace('post-', ''));
                     name = i.fromText('.entry-title a').replace(/\s*\([^\)]+\)\s*$/, '');
                     img  = i.fromData('img.lazyload', 'src');
                 }
 
-                if (img && name && href) {
-                    insert(card(href, img, name));
+                if (link && img && name) {
+                    insert(card(link, img, name));
                 }
             })
         });
@@ -266,7 +267,7 @@
     // --- handles an inbound url
 
     function process(url) {
-        url.includes('/gallery/') ? pics(url) : list(url);
+        url.startsWith(URLS.GAL) ? pics(url) : list(url);
     }
 
     // --- makes a url to browse a page
