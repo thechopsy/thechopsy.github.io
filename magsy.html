@@ -138,6 +138,7 @@
     const PARM = new URLSearchParams(window.location.search);
     const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
     const DECK = document.getElementById('deck');
+    const NAME = document.title;
     const URLS = {
         CAT: 'http://cartoonporncomics.info/all-categories',
         GAL: 'http://cartoonporncomics.info/gallery',
@@ -215,6 +216,7 @@
             ctx.curr = parseInt(new URLSearchParams(url).get('no')) || 0;
             ctx.last = parseInt(doc.fromText('.pagination span').split('of').map(i => i.trim()).pop()) || 0;
 
+            document.title = `${ comic } » ${ strand }`;
             DECK.innerHTML = `
                 <img id="page" src="${ ctx.page }"/>
                 <div class="info">
@@ -242,6 +244,8 @@
             ctx.curr = page(url);
             ctx.last = Math.max(pages.pop(), ctx.curr);
             ctx.done.push(ctx.curr);
+
+            document.title = categ ? NAME : doc.fromText('.breadcrumb_last');
 
             let posts = doc.forAll(categ ? '.categoryCard' : 'article.post').map(i => {
                 let link, name, img;
