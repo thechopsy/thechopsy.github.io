@@ -167,7 +167,7 @@
   const SITE = document.title;
   const PARM = new URLSearchParams(window.location.search);
   const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
-  const JSON = decrypt('U2FsdGVkX18vGJItwOZOH9ulbSt9tU13ZZYFOLfVC07xv2OqKvDbEl3MWaKyY0Zz4K1vKR4Wc91ryvduLgXeC5Ke/G+h5XWDCX/5JmeAbEFkmw3eHR7i35ROAooONDmy', PARM.get('k') || ''); // see lambda/json
+  const DATA = decrypt('U2FsdGVkX18vGJItwOZOH9ulbSt9tU13ZZYFOLfVC07xv2OqKvDbEl3MWaKyY0Zz4K1vKR4Wc91ryvduLgXeC5Ke/G+h5XWDCX/5JmeAbEFkmw3eHR7i35ROAooONDmy', PARM.get('k') || ''); // see lambda/json
   const TAGS = 'https://www.pornpics.com/tags/';
   const STAR = 'https://www.pornpics.com/pornstars/list/';
   const PICS = `https://www.pornpics.com/[TAG]/?limit=${ SIZE }&offset=1`;
@@ -192,19 +192,44 @@
 
   let state = [];
 
+  // --- download with cache
+
+  function grab(url, cache) {
+      let grab = { cache: null, real: null };
+
+      if (cache) {
+          let found = localStorage.getItem(url);
+          if (found) {
+              grab.cache = Promise.resolve(JSON.parse(found));
+          }
+      }
+
+      grab.real = fetch(url)
+      .then(res => res.status === 200 ? res.json() : null)
+      .then(out => {
+          if (out) {
+              localStorage.setItem(url, JSON.stringify(out));
+          }
+
+          return out;
+      });
+
+      return grab.cache || grab.real;
+  }
+
   // --- download json
 
-  function data(url) {
-      return fetch(JSON + encodeURIComponent(url))
-      .then(res => res.status === 200 ? res.json() : { data: [] })
+  function data(url, cache = false) {
+      return grab(DATA + encodeURIComponent(url), cache)
+      .then(out => out || { data: [] })
       .then(out => out.data);
   }
 
   // --- download html
 
-  function html(url) {
-      return fetch(HTML + encodeURIComponent(url))
-      .then(res => res.status === 200 ? res.json() : { text: '' })
+  function html(url, cache = false) {
+      return grab(HTML + encodeURIComponent(url), cache)
+      .then(out => out || { text: '' })
       .then(out => out.text)
       .then(doc => new DOMParser().parseFromString(doc, 'text/html'));
   }
@@ -234,7 +259,7 @@
 
   function tags() {
       wait(true);
-      Promise.all([ html(TAGS), html(STAR) ]).then(([ doc1, doc2 ]) => {
+      Promise.all([ html(TAGS, true), html(STAR, true) ]).then(([ doc1, doc2 ]) => {
           let list1 = [ ...doc1.querySelectorAll('.list-item a') ];
           let list2 = [ ...doc2.querySelectorAll('.list-item a') ];
           let next  = {
