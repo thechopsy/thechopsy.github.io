@@ -207,7 +207,7 @@
       grab.real = fetch(url)
       .then(res => res.status === 200 ? res.json() : null)
       .then(out => {
-          if (out) {
+          if (out && cache) {
               localStorage.setItem(url, JSON.stringify(out));
           }
 
