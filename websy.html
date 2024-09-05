@@ -92,8 +92,8 @@
     const HTML = decrypt('U2FsdGVkX1+Xgmkh/13HfADWyL4/PfpbDoE+jCnDGUuePJH/1WGy0ktGRKeXOV+SnTJ+0AEu5bnDXHkbA+U1i7LYJQL3pzhu9rSz7z9djRjPBTyj5VdTWALxAckNTLRm', PARM.get('k') || ''); // see lambda/html-source
     const DECK = document.getElementById('deck');
     const SITE = document.getElementById('site');
-    const VIDS = /["']([^"']+\.mp4)[/]?["']/g;
-    const PICS = /["']([^"']+\.jpg)[/]?["']/g;
+    const VIDS = /["']([^"']+\.mp4)[^"']*["']/g;
+    const PICS = /["']([^"']+\.jpg)[^"']*["']/g;
 
     // --- reader options
 
