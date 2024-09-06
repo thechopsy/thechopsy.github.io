@@ -56,6 +56,10 @@
         box-shadow: 0px 3px 15px rgba(0,0,0,0.2);
     }
 
+    .card.link {
+        font-size: 0.5rem;
+    }
+
     .card img {
         width: 100%;
     }
@@ -158,8 +162,13 @@
 
     // --- checks if an image is worth showing
 
-    function image(img) {
-        if(img.naturalWidth < EXCLUDE.WIDTH) img.remove();
+    function image(img, loaded) {
+        let remove = img.naturalWidth < EXCLUDE.WIDTH || !loaded;
+        let parent = img.closest('.card');
+
+        if (parent && remove) {
+            parent.remove();
+        }
     }
 
     // --- browse the url
@@ -215,12 +224,12 @@
 
                     if (txts.length === 1 && txts[0].length < 5) continue;
 
-                    txts.forEach(i => body.push(`<p>${ i }</p>`));
-                    pics.forEach(i => body.push(`<img src="${ i }" onload="image(this)"/>`));
+                    body.push(`<p>${ txts.join(' | ') }</p>`);
+                    pics.forEach(i => body.push(`<img src="${ i }" onload="image(this, true)" onerror="image(this, false)" />`));
 
                     if (body.length && ref !== 'null') {
                         body.push(`<p><tt>${ ref }</tt></p>`);
-                        card(`<a href="${ goto(ref) }">${ body.join('') }</a>`);
+                        card(`<a href="${ goto(ref) }">${ body.join('') }</a>`, pics.length ? 'image' : 'link');
                     }
                 }
             });
