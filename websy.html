@@ -57,7 +57,10 @@
     }
 
     .card.link {
-        font-size: 0.5rem;
+        font-size: 0.6rem;
+        padding: 2px 8px;
+        max-height: 30px;
+        overflow: hidden;
     }
 
     .card img {
@@ -103,6 +106,7 @@
     const SITE = document.getElementById('site');
     const VIDS = /["']([^"']+\.mp4)[^"']*["']/g;
     const PICS = /["']([^"']+\.jpg)[^"']*["']/g;
+    const LOAD = 'onload="media(this, true)" onerror="media(this, false)"';
 
     // --- reader options
 
@@ -165,11 +169,12 @@
         card(text, 'prompt');
     }
 
-    // --- checks if an image is worth showing
+    // --- checks if media is loaded or worth showing
 
-    function image(img, loaded) {
-        let remove = img.naturalWidth < EXCLUDE.WIDTH || !loaded;
-        let parent = img.closest('.card');
+    function media(item, loaded) {
+        let length = item.tagName === 'IMG' ? item.naturalWidth : item.videoWidth;
+        let remove = length < EXCLUDE.WIDTH || !loaded;
+        let parent = item.closest('.card');
 
         if (parent && remove) {
             parent.remove();
@@ -194,7 +199,7 @@
                     let include = EXCLUDE.VIDEO.reduce((acc, curr) => acc && match[1].toLowerCase().includes(curr) === false, true);
                     if (include) {
                         let media = absolute(match[1], parts.origin);
-                        card(`<video controls><source src="${ media }" type="video/mp4" ></video>`, 'video');
+                        card(`<video controls ${ LOAD }><source src="${ media }" type="video/mp4"></video>`, 'video');
                     }
                 }
 
@@ -222,15 +227,25 @@
                     }
                 });
 
-                for(let ref in links) {
+                for (let ref in links) {
                     let body = [];
                     let txts = [ ...new Set(links[ref].txts.map(i => (i || '').trim()).filter(i => i)) ];
                     let pics = [ ...new Set(links[ref].pics.map(i => (i || '').trim()).filter(i => i)) ];
 
-                    if (txts.length === 1 && txts[0].length < 5) continue;
+             //       if (txts.length === 1 && txts[0].length < 5) continue;
 
-                    body.push(`<p>${ txts.join(' | ') }</p>`);
-                    pics.forEach(i => body.push(`<img src="${ i }" onload="image(this, true)" onerror="image(this, false)" />`));
+                    // --- remove duplicate texts - happens often 
+
+                    for (let i = 0 ; i < txts.length ; i++) {
+                        for (let j = i+1 ; j < txts.length ; j++) {
+                            if (txts[i].toLowerCase().includes(txts[j].toLowerCase())) {
+                                txts[j] = '';
+                            }
+                        }
+                    }
+
+                    body.push(`<p>${ txts.filter(i => i).join(' | ') }</p>`);
+                    pics.forEach(i => body.push(`<img src="${ i }" ${ LOAD } />`));
 
                     if (body.length && ref !== 'null') {
                         body.push(`<p><tt>${ ref }</tt></p>`);
