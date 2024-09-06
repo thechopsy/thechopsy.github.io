@@ -64,6 +64,11 @@
         width: 100%;
     }
 
+    .card video {
+        max-width: 100%;
+        width: 100%;
+    }
+
     .card p {
         margin: 8px 0;
     }
@@ -189,7 +194,7 @@
                     let include = EXCLUDE.VIDEO.reduce((acc, curr) => acc && match[1].toLowerCase().includes(curr) === false, true);
                     if (include) {
                         let media = absolute(match[1], parts.origin);
-                        card(`<a href="${ media }" target="new">${ media }</a>`, 'video');
+                        card(`<video controls><source src="${ media }" type="video/mp4" ></video>`, 'video');
                     }
                 }
 
