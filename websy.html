@@ -131,7 +131,7 @@
     function clean(url) {
         return url ? url.replaceAll('\\/', '/') : url;
     }
-    
+
     // --- check if a url is relative
 
     function relative(url) {
@@ -141,7 +141,10 @@
     // --- make a url absolute if not already
 
     function absolute(url, origin) {
-        return clean(relative(url) ? origin + url : url);
+        if (!relative(url)) return clean(url);
+
+        const join = origin.endsWith('/') || url.startsWith('/') ? '' : '/';
+        return clean(origin + join + url);
     }
 
     // --- makes a url to browse a page
@@ -169,9 +172,52 @@
         card(text, 'prompt');
     }
 
+    // --- inserts a video card
+
+    function video(media) {
+        const idx = Math.floor(Math.random() * 1000000); // unique ID
+        const videoId = `vid-${idx}`;
+        const infoId  = `info-${idx}`;
+
+        // 1. Insert the HTML
+
+        card(
+            `<video id="${videoId}" controls autoplay>
+               <source src="${media}" type="video/mp4">
+             </video>
+             <br/>
+             <div id="${infoId}">Loading ${ media }</div>`,
+            'video'
+        );
+
+        // 2. Wait a tick and bind listeners
+
+        setTimeout(() => {
+            const vid  = document.getElementById(videoId);
+            const info = document.getElementById(infoId);
+
+            if (!vid || !info) return;
+
+            vid.addEventListener('loadeddata', () => {
+                const width    = vid.videoWidth;
+                const height   = vid.videoHeight;
+                const duration = vid.duration.toFixed(2);
+
+                info.innerHTML = `${width}×${height}, Duration: ${duration}s - <a href="${media}" target="_blank">source</a>`;
+            });
+
+            vid.addEventListener('error', () => {
+                vid.remove();
+                info.innerHTML = `Failed to load - <a href="${media}" target="_blank">source</a>`;
+            });
+        }, 0);
+    }
+
+
     // --- checks if media is loaded or worth showing
 
     function media(item, loaded) {
+        if (item.tagName !== 'IMG') console.log(item, loaded);
         let length = item.tagName === 'IMG' ? item.naturalWidth : item.videoWidth;
         let remove = length < EXCLUDE.WIDTH || !loaded;
         let parent = item.closest('.card');
@@ -198,8 +244,7 @@
                 while((match = VIDS.exec(doc.innerHTML)) !== null) {
                     let include = EXCLUDE.VIDEO.reduce((acc, curr) => acc && match[1].toLowerCase().includes(curr) === false, true);
                     if (include) {
-                        let media = absolute(match[1], parts.origin);
-                        card(`<video controls ${ LOAD }><source src="${ media }" type="video/mp4"></video>`, 'video');
+                        video(absolute(match[1], parts.origin));
                     }
                 }
 
@@ -234,7 +279,7 @@
 
              //       if (txts.length === 1 && txts[0].length < 5) continue;
 
-                    // --- remove duplicate texts - happens often 
+                    // --- remove duplicate texts - happens often
 
                     for (let i = 0 ; i < txts.length ; i++) {
                         for (let j = i+1 ; j < txts.length ; j++) {
